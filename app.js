@@ -4,11 +4,8 @@ const {
     Attendance
     }=require("./schema");
 const express=require('express')
-// const cors=require('cors');
 const bodyParser=require('body-parser');
-
 const app=express();
-// app.use(cors);
 app.use(bodyParser.json());
 
 
@@ -18,6 +15,7 @@ app.get("/",(req,res)=>{
     res.send("Dinesh");
 })
 
+// FOR ADDING EMPLOYEES
 app.post('/create', async (req, res) => {
     const { name, role, phone, email } = req.body;
   
@@ -39,30 +37,26 @@ app.post('/create', async (req, res) => {
     }
   });
 
-
+// FOR ADDING ATTENDANCE
   app.post('/add-attendance', async (req, res) => {
     const { email, date, status, reason } = req.body;
   
     try {
-      // Step 1: Find the employee based on the provided email
       const employee = await Employee.findOne({ email });
   
       if (!employee) {
         return res.status(404).json({ error: 'Employee not found' });
       }
   
-      // Step 2: Create a new attendance record
       const attendance = new Attendance({
         employeeId: employee._id,
         date,
         status,
         reason
       });
-  
-      // Step 3: Save the attendance record
+
       await attendance.save();
   
-      // Step 4: Update the employee document to include the attendance record ID
       employee.attendance.push(attendance._id);
       await employee.save();
   
@@ -73,26 +67,21 @@ app.post('/create', async (req, res) => {
     }
   });
 
-
+// FOR GETTING PRESENT & ABSENT OF EMPLOYEE
   app.get('/details', async (req, res) => {
     const { email } = req.body;
   
     try {
-      // Find the employee by email and populate the 'attendance' field with actual attendance records
       const employee = await Employee.findOne({ email })
       console.log(employee);
       
-      // const attend=await Attendance.find(employee._id)
       if (!employee) {
         return res.status(404).json({ error: 'Employee not found' });
       }
   
-      // Get the total attendance records and count of present days
       const totalAttendanceRecords = employee.attendance.length;
       const populatedAttendance = [];
       let present=0;
-
-      // Iterate over each attendance ObjectId and populate the record
       for (let objectId of employee.attendance) {
         const attendanceRecord = await Attendance.findById(objectId);
   
@@ -102,11 +91,9 @@ app.post('/create', async (req, res) => {
         }
       }
   
-      // Log the populated attendance records for debugging
+  
       console.log('Populated Attendance:', populatedAttendance.length);
 
-  
-      // Construct the response
       const response = {
         name: employee.name,
         role: employee.role,
@@ -121,6 +108,37 @@ app.post('/create', async (req, res) => {
       res.status(500).json({ error: 'Internal server error' });
     }
   });
+
+  // ATTENDANCE COUNT FOR TODAY
+  app.get('/attendance-count', async (req, res) => {
+    try {
+      const today = new Date();
+      today.setUTCHours(0, 0, 0, 0);
+  
+      const tomorrow = new Date(today);
+      tomorrow.setUTCDate(today.getUTCDate() + 1);
+  
+      const totalToday = await Attendance.countDocuments({
+        date: { $gte: today, $lt: tomorrow }
+      });
+  
+      const presentToday = await Attendance.countDocuments({
+        date: { $gte: today, $lt: tomorrow },
+        status: true
+      });
+
+      const response = {
+        totalToday,
+        presentToday
+      };
+  
+      res.json(response);
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+  
 
 app.listen(3001,()=>{
     console.log("Listening");
