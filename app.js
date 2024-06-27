@@ -139,6 +139,94 @@ app.post('/create', async (req, res) => {
     }
   });
   
+// last seven days records 
+  app.get('/last-week-records',async (req,res)=> {
+    const now = new Date();
+    now.setUTCHours(0);
+    now.setUTCMinutes(0);
+    now.setUTCSeconds(0);
+    now.setUTCMilliseconds(0);
+    const last_seven_days = []
+    for(let i = 0;i<7;i++){
+      let date = new Date(now - i * 24 * 60 * 60 * 1000)
+      last_seven_days.push(date)
+    }
+    console.log(last_seven_days)
+    const result = []
+    for(var index = 0;index<last_seven_days.length;index++){
+      const attendanceRecord = await Attendance.find({date : last_seven_days[index]});
+      numberOfPresent = 0;
+      attendanceRecord.forEach(item => {
+        if(item.status) numberOfPresent++;
+      })
+      result.push({
+        date : last_seven_days[index],
+        day : 7 - index,
+        totalPresent : numberOfPresent
+      })
+    }
+    res.json({
+      result
+    })
+  });
+
+
+  // Fetching monthly based attendance records 
+  app.post('/get-month-details', async (req, res) => {
+    const { email, month, year } = req.body;
+
+    try {
+        const employee = await Employee.findOne({ email }).populate('attendance');
+        if (!employee) {
+            return res.status(404).json({ message: 'Employee not found' });
+        }
+
+        const startDate = new Date(year, month - 1, 1);
+        const endDate = new Date(year, month, 0, 23, 59, 59);
+
+        const attendanceRecords = await Attendance.find({
+            employeeId: employee._id,
+            date: { $gte: startDate, $lte: endDate }
+        }).sort({ date: 1 });
+
+        const result = attendanceRecords.map(record => ({
+            date: record.date,
+            status: record.status
+        }));
+
+        res.json(result);
+    } catch (error) {
+        res.status(500).json({ message: 'Server error', error });
+    }
+});
+
+
+// For Getting all attendance records of a particular person 
+app.post('/get-all-records',async (req,res)=>{
+    const {email}=req.body;
+
+    try{
+      const employee=await Employee.findOne({email}).populate('attendance');
+
+    if(!employee){
+      return res.status(404).json({ message: 'Employee not found' });
+    }
+
+    const attendanceRecords=await Attendance.find({
+      employeeId:employee._id,
+    }).sort({date:1});
+
+    const response=attendanceRecords.map(record=>({
+        date:record.date,
+        status:record.status
+    }));
+
+    res.json(response);
+    }
+    catch(error){
+      res.status(500).json({ message: 'Server error', error });
+    }  
+});
 
 app.listen(3001,()=>{
     console.log("Listening");
